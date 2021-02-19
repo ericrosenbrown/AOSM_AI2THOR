@@ -17,7 +17,10 @@ lw_model = torch.nn.Sequential(*list(model.children())[:-2])
 lw_model.eval()
 
 # Download an example image from the pytorch website
-imgs = pickle.load(open("CookEgg_2.p","rb"))
+imgs1 = pickle.load(open("CookEgg_2.p","rb"))
+imgs2 = pickle.load(open("CookEgg_7_1000.p","rb"))
+imgs = imgs1#+imgs2
+num_imgs = len(imgs)
 
 # sample execution (requires torchvision)
 from PIL import Image
@@ -51,7 +54,7 @@ with torch.no_grad():
     #if you use second to last layer [-1]
     #almost_output = almost_output.squeeze(-1).squeeze(-1)
     #if you use third to last layer [-2]
-    almost_output = almost_output.reshape(10,100352)
+    almost_output = almost_output.reshape(num_imgs,100352)
     output = model(input_batch)
 
 # Tensor of shape 1000, with confidence scores over Imagenet's 1000 classes
@@ -72,7 +75,9 @@ pca.fit(almost_output)
 print(pca.explained_variance_ratio_)
 
 X_pca = pca.transform(almost_output)
-categories = [0,0,1,1,1,2,2,1,1,1]
-colormap = np.array(["r","g","b"])
+categories1 = [0,0,1,1,1,2,2,1,1,1]
+categories2 = [4,4,5,5,4]
+categories = categories1# + categories2
+colormap = np.array(["r","g","b","indianred","lime","royalblue"])
 plt.scatter(X_pca[:,0],X_pca[:,1],c=colormap[categories])
 plt.show()
