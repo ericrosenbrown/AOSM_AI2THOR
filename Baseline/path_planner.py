@@ -60,7 +60,8 @@ class Node:
 		self.p = p
 		self.parent = parent
 
-def rrt_path_planner(room,robot_pose,goal_pose,threshold=1,grid_size=0.25):
+def rrt_path_planner(room,robot_pose,goal_pose,threshold=1,grid_size=0.25,viz=True):
+	
 	robot_x = robot_pose[0]
 	robot_z = robot_pose[2]
 	robot_r = robot_pose[3] #rotation
@@ -74,7 +75,7 @@ def rrt_path_planner(room,robot_pose,goal_pose,threshold=1,grid_size=0.25):
 	planning_tree = [root]
 
 	x,y = zip(*room) #convert a bunch of (x,y) into 2 bunches of separated x and y.
-	print(room)
+	#print(room)
 
 	sp = steer([goal_x,goal_z],root,room)
 
@@ -113,79 +114,43 @@ def rrt_path_planner(room,robot_pose,goal_pose,threshold=1,grid_size=0.25):
 	child = goal_rep
 	parent = goal_rep.parent
 	plan_length = 1
+	pos_plan = []
 	while parent != root:
+		pos_plan.append(child.p)
 		x,y = zip(*(parent.p,child.p))
 		plt.plot(x,y,'r')
     
 		child = parent
 		parent = child.parent
 		plan_length +=1
+	pos_plan.append(root.p)
 	x,y = zip(*(root.p,child.p))
 	plt.plot(x,y,'r')
 	print("RRT found a plan of length ",plan_length)
         
-        
-	#plt.plot(root.p[0],root.p[1],'ro')
-	#plt.plot(goal[0],goal[1],'yo')
+	plt.plot(root.p[0],root.p[1],'ro')
+	plt.plot(goal_x,goal_z,'yo')
 	#plt.plot(random_point[0],random_point[1],'bo')
-	plt.show()
+	#print(robot_x,robot_z)
+	#print(goal_x,goal_z)
+	#print(pos_plan)
+	if viz:
+		plt.show()
+
+	return(pos_plan)
 
 
 
+if __name__ == "__main__":
+	mysave = pickle.load(open("action_maps/FloorPlan2_amap.p","rb"))
+	room = mysave["room"]
 
-def RRT(root,goal,step_size=0.1,delta=0.1):
-    planning_graph = [root]
-    complete = False
-    steps = 0
-    while not complete:
-        random_point = sample_random_point(root,1)
-        nearest = nearest_neighbor(random_point,planning_graph)
-        steering = steer(np.array(random_point),nearest,step_size)
-        new_node = Node(steering,nearest)
-        planning_graph.append(new_node)
-        steps += 1
-        
-        if np.linalg.norm(new_node.p-np.array(goal)) < delta:
-            complete = True
-            goal_rep = new_node #the configuration close enough to the goal.
-    print("RRT completed in ",steps, " steps")
-        
-    for point in planning_graph:
-        plt.plot(point.p[0],point.p[1],'go')
-        if point != root:
-            x,y = zip(*(point.parent.p,point.p))
-            plt.plot(x,y,'b')
-            
-    child = goal_rep
-    parent = goal_rep.parent
-    plan_length = 1
-    while parent != root:
-        x,y = zip(*(parent.p,child.p))
-        plt.plot(x,y,'r')
-    
-        child = parent
-        parent = child.parent
-        plan_length +=1
-    x,y = zip(*(root.p,child.p))
-    plt.plot(x,y,'r')
-    print("RRT found a plan of length ",plan_length)
-        
-        
-    plt.plot(root.p[0],root.p[1],'ro')
-    plt.plot(goal[0],goal[1],'yo')
-    plt.plot(random_point[0],random_point[1],'bo')
-    plt.show()
+	clean_room = [[pos_dict['x'],pos_dict['z']] for pos_dict in room]
 
+	action_map = mysave["action_map"]
 
-
-mysave = pickle.load(open("action_maps/FloorPlan2_amap.p","rb"))
-room = mysave["room"]
-clean_room = [[pos_dict['x'],pos_dict['z']] for pos_dict in room]
-
-action_map = mysave["action_map"]
-
-goal_pose = [00.06,00.97,-00.17,0] #egg location
-robot_pose = [-00.15,01.29,03.70,0] #light switch
-rrt_path_planner(clean_room,robot_pose,goal_pose)
+	goal_pose = [00.06,00.97,-00.17,0] #egg location
+	robot_pose = [-00.15,01.29,03.70,0] #light switch
+	rrt_path_planner(clean_room,robot_pose,goal_pose)
 
 
