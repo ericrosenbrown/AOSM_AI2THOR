@@ -8,8 +8,11 @@ import numpy as np
 import math
 import copy
 import random
+import math
 
 from path_planner import rrt_path_planner
+
+from PIL import Image
 
 def nearest_neighbor(p,poses):
 	#given a 2d point p ([x,y]) and a planning tree (list consisting of Nodes), return the node that is closest to p
@@ -86,6 +89,10 @@ def rotate_test():
 
 
 def plan_navigation(plan,gridSize=0.25,floorPlan='FloorPlan2'):
+	fname = "baseline_images/"+floorPlan+"_toast_1/"
+	counter = 0
+	save_images = True
+
 	controller = Controller(scene=floorPlan, gridSize=gridSize,width=500,height=500)
 
 	event = controller.step(action='GetReachablePositions')
@@ -96,6 +103,12 @@ def plan_navigation(plan,gridSize=0.25,floorPlan='FloorPlan2'):
 	heldObject = None
 
 	important_obj_refs = {}
+
+	controller.step("LookDown")
+	if save_images:
+		im = Image.fromarray(event.frame)
+		im.save(fname+str(counter)+".png")
+		counter += 1
 
 	for manip_step in manip_plan:
 		action, obj, obj_highlevel_ref = manip_step
@@ -133,7 +146,75 @@ def plan_navigation(plan,gridSize=0.25,floorPlan='FloorPlan2'):
 
 		degree = get_angle(closest_free_spot,object_loc)
 
-		event = controller.step(action='TeleportFull', x=closest_free_spot['x'], y=closest_free_spot['y'], z=closest_free_spot['z'], rotation=dict(x=0.0, y=degree, z=0.0), horizon=30.0,raise_for_failure=True)
+		#########event = controller.step(action='TeleportFull', x=closest_free_spot['x'], y=closest_free_spot['y'], z=closest_free_spot['z'], rotation=dict(x=0.0, y=degree, z=0.0), horizon=30.0,raise_for_failure=True)
+		clean_room = [[pos_dict['x'],pos_dict['z']] for pos_dict in room]
+		agent = event.metadata['agent']
+		robot_pose = [agent['position']['x'],agent['position']['y'],agent['position']['z'],0]
+		goal_pose = [closest_free_spot['x'],closest_free_spot['y'],closest_free_spot['z'],degree]
+		plan = rrt_path_planner(clean_room,robot_pose,goal_pose,threshold=0.25)
+		plan.reverse()
+
+		print("plan:",plan)
+
+		##### TELEPORT MOVE #######
+		
+		for pos in plan:
+			print("go to:",pos)
+			print(pos[0],goal_pose[1],pos[1],0.0,goal_pose[3],0.0,30.0)
+			input("")
+			try:
+				event = controller.step(action='TeleportFull', x=pos[0], y=goal_pose[1], z=pos[1], rotation=dict(x=0.0, y=goal_pose[3], z=0.0), horizon=30.0,raise_for_failure=True)
+				if save_images:
+					im = Image.fromarray(event.frame)
+					im.save(fname+str(counter)+".png")
+					counter += 1
+			except:
+				pass
+		print("finsihed going!")
+
+		###### ACTUAYL MOVE ####
+		'''
+		for i in range(1,len(plan)):
+			print("go to:",plan[i-1],plan[i])
+			robot_from = {"x":plan[i-1][0], "z":plan[i-1][1]}
+			robot_to = {"x":plan[i][0], "z":plan[i][1]}
+
+			robot_dist = np.linalg.norm(np.array(plan[i-1])-np.array(plan[i]))
+			robot_degree_need = get_angle(robot_from,robot_to)
+
+			agent = event.metadata['agent']
+			print("robot position:",agent["position"])
+			robot_degree_cur = agent['rotation']['y']
+			rotation_delta = robot_degree_need - robot_degree_cur
+			print("robot_degree_cur:",robot_degree_cur)
+			print("Robot need to be:",robot_degree_need)
+			print("rotate:",rotation_delta)
+			print("robot move:",robot_dist)
+			input("")
+			event = controller.step(
+				action="RotateRight",
+				degrees=rotation_delta)
+			input("move")
+			event = controller.step(
+				action="MoveAhead",
+				moveMagnitude=robot_dist)
+
+		print("finsihed going!")
+		agent = event.metadata['agent']
+		agent_pos = agent["position"]
+		robot_degree_need = get_angle(agent_pos,object_loc)
+		robot_degree_cur = agent['rotation']['y']
+		rotation_delta = robot_degree_need - robot_degree_cur
+		input("findal correct")
+		event = controller.step(
+				action="RotateRight",
+				degrees=rotation_delta)
+
+		print("robot position:",agent["position"])
+		'''
+
+		#################
+
 		input("before manip")
 		if action == "PickupObject":
 			event = controller.step(action='PickupObject',
@@ -167,6 +248,10 @@ def plan_navigation(plan,gridSize=0.25,floorPlan='FloorPlan2'):
 				raise_for_failure=True)
 			print("Toggle off:",obj_ref['objectId'])
 
+		if save_images:
+			im = Image.fromarray(event.frame)
+			im.save(fname+str(counter)+".png")
+			counter += 1
 
 
 		input("wait")

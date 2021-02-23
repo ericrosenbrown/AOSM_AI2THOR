@@ -60,7 +60,7 @@ class Node:
 		self.p = p
 		self.parent = parent
 
-def rrt_path_planner(room,robot_pose,goal_pose,threshold=1,grid_size=0.25,viz=True):
+def rrt_path_planner(room,robot_pose,goal_pose,threshold=1,grid_size=0.25,viz=False):
 	
 	robot_x = robot_pose[0]
 	robot_z = robot_pose[2]

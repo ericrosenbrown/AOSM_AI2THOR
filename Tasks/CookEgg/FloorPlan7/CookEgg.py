@@ -78,6 +78,7 @@ event = controller.step(action='PutObject',
                                 receptacleObjectId=pan_object_id,
                                 objectId=egg_object_id,
                                 raise_for_failure=True)
+
 if save_images:
     imgs.append(event.frame)
     pickle.dump(imgs,open(fname+".p","wb"))
