@@ -44,9 +44,11 @@ def make_actionmap(floorPlan='FloorPlan6',task="toast_bread",gridSize=0.25):
 	##### GO TO EACH FREE POSE AND TRY ACTIONS
 	#shuffle room poses
 
-	attempts = 50
+	attempts = 10
+	total_attempts = []
 
 	for _ in range(attempts):
+		num_steps = 0
 
 		random.shuffle(room)
 
@@ -57,6 +59,7 @@ def make_actionmap(floorPlan='FloorPlan6',task="toast_bread",gridSize=0.25):
 				if True in objects_cooked:
 					print("LOOKS LIKE SOMETHING COOKED, RESET!")
 					event = controller.reset(scene=floorPlan)
+					total_attempts.append(num_steps)
 					break
 
 			x = xyz['x']
@@ -67,6 +70,7 @@ def make_actionmap(floorPlan='FloorPlan6',task="toast_bread",gridSize=0.25):
 			random.shuffle(orientations)
 			for rotation in orientations:
 				event = controller.step(action='TeleportFull', x=x, y=y, z=z, rotation=dict(x=0.0, y=rotation, z=0.0), horizon=30.0)
+				num_steps += 1
 				#go through all objects in the scene at this current event in random order
 				#TODO randomize action order
 				cur_objects = event.metadata['objects']
@@ -82,6 +86,7 @@ def make_actionmap(floorPlan='FloorPlan6',task="toast_bread",gridSize=0.25):
 								objectId=o['objectId'],
 								raise_for_failure=True)
 							print("Picked up:",o['objectId'])
+							num_steps += 1
 							heldObject = o['objectId']
 							action_map['PickupObject'][o['objectId']][str(obj1_pos)].append([x,y,z,rotation])
 						except:
@@ -96,6 +101,7 @@ def make_actionmap(floorPlan='FloorPlan6',task="toast_bread",gridSize=0.25):
 								objectId=heldObject,
 								raise_for_failure=True)
 							print("Placed:",heldObject,o['objectId'])
+							num_steps += 1
 							action_map['PutObject'][heldObject+"*"+o['objectId']][str(obj1_pos)].append([x,y,z,rotation])
 						except:
 							pass
@@ -108,6 +114,7 @@ def make_actionmap(floorPlan='FloorPlan6',task="toast_bread",gridSize=0.25):
 								objectId=o['objectId'],
 								raise_for_failure=True)
 							print("Turned On:",o['objectId'])
+							num_steps += 1
 							action_map['ToggleObjectOn'][o['objectId']][str(obj1_pos)].append([x,y,z,rotation])
 						except:
 							pass
@@ -120,6 +127,7 @@ def make_actionmap(floorPlan='FloorPlan6',task="toast_bread",gridSize=0.25):
 								objectId=o['objectId'],
 								raise_for_failure=True)
 							print("Turned Off:",o['objectId'])
+							num_steps += 1
 							action_map['ToggleObjectOff'][o['objectId']][str(obj1_pos)].append([x,y,z,rotation])
 						except:
 							pass
@@ -132,6 +140,7 @@ def make_actionmap(floorPlan='FloorPlan6',task="toast_bread",gridSize=0.25):
 								objectId=o['objectId'],
 								raise_for_failure=True)
 							print("Sliced:",o['objectId'])
+							num_steps += 1
 							action_map['SliceObject'][o['objectId']][str(obj1_pos)].append([x,y,z,rotation])
 						except:
 							pass
@@ -149,11 +158,13 @@ def make_actionmap(floorPlan='FloorPlan6',task="toast_bread",gridSize=0.25):
 						action_map[o['objectId']]['SliceObject'].append([x_raw,y_raw,z_raw,rotation])
 					'''
 
-		pickle.dump({"action_map":action_map, "room":room}, open("action_maps/lots50a_new_amap_"+floorPlan+"_"+task+".p", "wb" ) )
-		print(action_map.keys())
-		print("RAN OUTA STEPS, RESET!")
+		#pickle.dump({"action_map":action_map, "room":room}, open("action_maps/lots50a_new_amap_"+floorPlan+"_"+task+".p", "wb" ) )
+		#print(action_map.keys())
+		#print("RAN OUTA STEPS, RESET!")
 		event = controller.reset(scene=floorPlan)
+		total_attempts.append(num_steps)
 	controller.stop()
+	print("counts:",total_attempts)
 
 if __name__ == "__main__":
 	fp = 6

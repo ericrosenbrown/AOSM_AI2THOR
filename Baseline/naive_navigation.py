@@ -10,7 +10,7 @@ import copy
 import random
 import math
 
-from path_planner import rrt_path_planner
+from path_planner import rrt_path_planner, rrt_path_planner_multigoal
 
 from PIL import Image
 
@@ -24,6 +24,16 @@ def nearest_neighbor(p,poses):
 			best_point = point
 			best_distance= dist
 	return(best_point)
+
+def action_spots(p,poses,thresh=1):
+	#given a 2d point p ([x,y]) and a planning tree (list consisting of Nodes), return the node that is closest to p
+	good_enough_spots = []
+	for point in poses:
+		dist = np.linalg.norm(np.array([point['x'],point['z']])-np.array([p['x'],p['z']]))
+		if dist < thresh:
+			good_enough_spots.append([point['x'],point['z']])
+	return(good_enough_spots)
+
 
 def get_angle(robot_pos,object_pos):
 	#get angle for robot_pos to face object_pos
@@ -88,12 +98,18 @@ def rotate_test():
 	input("wait")
 
 
-def plan_navigation(plan,gridSize=0.25,floorPlan='FloorPlan2'):
+def plan_navigation(manip_plan,gridSize=0.25,floorPlan='FloorPlan2'):
 	fname = "baseline_images/"+floorPlan+"_toast_1/"
 	counter = 0
 	save_images = True
 
-	controller = Controller(scene=floorPlan, gridSize=gridSize,width=500,height=500)
+	controller = Controller(scene=floorPlan, gridSize=gridSize,width=500,height=500,renderObjectImage=True,renderClassImage=True,renderDepthImage=True)
+
+	event = controller.step(action="InitialRandomSpawn",
+	randomSeed=25,
+	forceVisible=True,
+	numPlacementAttempts=5,
+	placeStationary=True)
 
 	event = controller.step(action='GetReachablePositions')
 	room = event.metadata['actionReturn']
@@ -105,9 +121,14 @@ def plan_navigation(plan,gridSize=0.25,floorPlan='FloorPlan2'):
 	important_obj_refs = {}
 
 	controller.step("LookDown")
+	controller.step("LookDown")
 	if save_images:
 		im = Image.fromarray(event.frame)
-		im.save(fname+str(counter)+".png")
+		im.save(fname+"rgb/"+str(counter)+".png")
+
+		mask_im = Image.fromarray(event.instance_segmentation_frame)
+		mask_im.save(fname+"mask/"+str(counter)+".png")
+
 		counter += 1
 
 	for manip_step in manip_plan:
@@ -142,19 +163,20 @@ def plan_navigation(plan,gridSize=0.25,floorPlan='FloorPlan2'):
 		object_loc = obj_ref['position']
 
 		#nearest free pose to object
-		closest_free_spot = nearest_neighbor(object_loc,room)
+		#closest_free_spot = nearest_neighbor(object_loc,room)
+		close_enough_free_spots = action_spots(object_loc,room)
 
-		degree = get_angle(closest_free_spot,object_loc)
 
 		#########event = controller.step(action='TeleportFull', x=closest_free_spot['x'], y=closest_free_spot['y'], z=closest_free_spot['z'], rotation=dict(x=0.0, y=degree, z=0.0), horizon=30.0,raise_for_failure=True)
 		clean_room = [[pos_dict['x'],pos_dict['z']] for pos_dict in room]
 		agent = event.metadata['agent']
 		robot_pose = [agent['position']['x'],agent['position']['y'],agent['position']['z'],0]
-		goal_pose = [closest_free_spot['x'],closest_free_spot['y'],closest_free_spot['z'],degree]
-		plan = rrt_path_planner(clean_room,robot_pose,goal_pose,threshold=0.25)
+		plan = rrt_path_planner_multigoal(clean_room,robot_pose,close_enough_free_spots,threshold=0.25)
 		plan.reverse()
 
 		print("plan:",plan)
+		degree = get_angle({"x":plan[-1][0],"z":plan[-1][1]},object_loc)
+		goal_pose = [plan[-1][0],room[0]["y"],plan[-1][1],degree]
 
 		##### TELEPORT MOVE #######
 		
@@ -166,7 +188,10 @@ def plan_navigation(plan,gridSize=0.25,floorPlan='FloorPlan2'):
 				event = controller.step(action='TeleportFull', x=pos[0], y=goal_pose[1], z=pos[1], rotation=dict(x=0.0, y=goal_pose[3], z=0.0), horizon=30.0,raise_for_failure=True)
 				if save_images:
 					im = Image.fromarray(event.frame)
-					im.save(fname+str(counter)+".png")
+					im.save(fname+"rgb/"+str(counter)+".png")
+
+					mask_im = Image.fromarray(event.instance_segmentation_frame)
+					mask_im.save(fname+"mask/"+str(counter)+".png")
 					counter += 1
 			except:
 				pass
@@ -221,7 +246,7 @@ def plan_navigation(plan,gridSize=0.25,floorPlan='FloorPlan2'):
 				objectId=obj_ref['objectId'],
 				raise_for_failure=True)
 			print("Picked up:",obj_ref['objectId'])
-			heldObject = obj
+			heldObject = obj_ref['objectId']
 
 		elif action == "SliceObject":
 			event = controller.step(action='SliceObject',
@@ -230,6 +255,9 @@ def plan_navigation(plan,gridSize=0.25,floorPlan='FloorPlan2'):
 			print("Sliced:",obj_ref['objectId'])
 
 		elif action == "PutObject":
+			print("Put:",heldObject)
+			print("into:",obj_ref['objectId'])
+			event = controller.step("LookDown")
 			event = controller.step(action='PutObject',
 				receptacleObjectId=obj_ref['objectId'],
 				objectId=heldObject,
@@ -250,7 +278,11 @@ def plan_navigation(plan,gridSize=0.25,floorPlan='FloorPlan2'):
 
 		if save_images:
 			im = Image.fromarray(event.frame)
-			im.save(fname+str(counter)+".png")
+			im.save(fname+"rgb/"+str(counter)+".png")
+
+
+			mask_im = Image.fromarray(event.instance_segmentation_frame)
+			mask_im.save(fname+"mask/"+str(counter)+".png")
 			counter += 1
 
 
@@ -258,7 +290,7 @@ def plan_navigation(plan,gridSize=0.25,floorPlan='FloorPlan2'):
 
 
 
-manip_plan = [["PickupObject","Knife","Knife0"],
+toast_plan = [["PickupObject","Knife","Knife0"],
 ["SliceObject","Bread","Bread0"],
 ["PutObject","CounterTop","CounterTop0"],
 ["PickupObject","BreadSliced","BreadSliced0"],
@@ -268,7 +300,26 @@ manip_plan = [["PickupObject","Knife","Knife0"],
 ["PickupObject","BreadSliced","BreadSliced0"],
 ]
 
+egg_plan = [["PickupObject","Pan","Pan0"],
+["PutObject","StoveBurner","Stove0"],
+["PickupObject","Egg","Egg0"],
+["PutObject","Pan","Pan0"],
+["SliceObject","Egg","Egg0"],
+["ToggleObjectOn","StoveKnob","StoveKnob0"],
+["ToggleObjectOn","StoveKnob","StoveKnob1"],
+["ToggleObjectOn","StoveKnob","StoveKnob2"],
+["ToggleObjectOn","StoveKnob","StoveKnob3"],
+["ToggleObjectOn","StoveKnob","StoveKnob4"],
+["ToggleObjectOn","StoveKnob","StoveKnob5"],
+["ToggleObjectOff","StoveKnob","StoveKnob0"],
+["ToggleObjectOff","StoveKnob","StoveKnob1"],
+["ToggleObjectOff","StoveKnob","StoveKnob2"],
+["ToggleObjectOff","StoveKnob","StoveKnob3"],
+["ToggleObjectOff","StoveKnob","StoveKnob4"],
+["ToggleObjectOff","StoveKnob","StoveKnob5"],
+]
+
 floor_plans = [1,2,3,4,5,6,7,8,9,10,11]
-plan_navigation(manip_plan,gridSize=0.25,floorPlan="FloorPlan6")
+plan_navigation(toast_plan,gridSize=0.25,floorPlan="FloorPlan2")
 
 #rotate_test()

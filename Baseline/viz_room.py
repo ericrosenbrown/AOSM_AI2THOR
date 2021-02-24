@@ -1,12 +1,22 @@
 import pickle
 from collections import defaultdict
 import json 
+from ai2thor.controller import Controller
+import pickle
+from collections import defaultdict
+import json 
+import numpy as np
+import math
+import copy
+import random
+import math
 
 def dd():
 	return defaultdict(ddd)
 
 def ddd():
 	return defaultdict(list)
+
 
 def viz_room(room,robot_position,gridSize=0.25):
 	minx = 1000000
@@ -151,8 +161,9 @@ if __name__ == "__main__":
 	#viz_room(fp2,[0,0])
 
 	#premade = pickle.load(open("action_maps/new_amap_FloorPlan6_toast_bread.p","rb"))
-	premade = pickle.load(open("action_maps/lotsa_new_amap_FloorPlan6_toast_bread.p","rb"))
+	#premade = pickle.load(open("action_maps/lotsa_new_amap_FloorPlan6_toast_bread.p","rb"))
+	premade = pickle.load(open("action_maps/FloorPlan2_amap.p","rb"))
 	room = premade['room']
 	action_map = premade['action_map']
 	viz_room(room,[0,0])
-	viz_action_objectid_objectpose(room,action_map,gridSize=0.25)
+	#viz_action_objectid_objectpose(room,action_map,gridSize=0.25)
