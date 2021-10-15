@@ -9,6 +9,7 @@ import math
 import copy
 import random
 import math
+from tqdm import tqdm
 
 from path_planner import rrt_path_planner, rrt_path_planner_multigoal
 
@@ -25,7 +26,7 @@ def nearest_neighbor(p,poses):
 			best_distance= dist
 	return(best_point)
 
-def action_spots(p,poses,thresh=1):
+def action_spots(p,poses,thresh=1.25):
 	#given a 2d point p ([x,y]) and a planning tree (list consisting of Nodes), return the node that is closest to p
 	good_enough_spots = []
 	for point in poses:
@@ -44,69 +45,33 @@ def get_angle(robot_pos,object_pos):
 		degree = 360 + degree
 	return(degree)
 
-def rotate_test():
-	floorPlan='FloorPlan6'
-	gridSize = 0.25
-	controller = Controller(scene=floorPlan, gridSize=gridSize,width=500,height=500)
-
-	event = controller.step(action='GetReachablePositions')
-	room = event.metadata['actionReturn']
-
-	agent = event.metadata['agent']
-	print("agent pos:",agent["position"])
-	robot_pos = agent["position"]
-
-	print("get angles")
-	north = copy.deepcopy(agent["position"])
-	north["x"]  -= 0.5
-	print("north:",north, robot_pos)
-	get_angle(robot_pos,north)
-	get_angle(north,robot_pos)
-
-	east = copy.deepcopy(agent["position"])
-	east["z"]  += 0.5
-	print("east:",east,robot_pos)
-	get_angle(robot_pos,east)
-
-	south = copy.deepcopy(agent["position"])
-	south["x"]  += 0.5
-	print("south:",south,robot_pos)
-	get_angle(robot_pos,south)
-
-	west = copy.deepcopy(agent["position"])
-	west["z"]  -= 0.5
-	print("west:",west,robot_pos)
-	get_angle(robot_pos,west)
-
-	#turn agent in different directions
-	for degree in [0,90,180,270]:
-		print("turn to degree:",degree)
-		input()
-		event = controller.step(action='TeleportFull', x=agent["position"]['x'], y=agent["position"]['y'], z=agent["position"]['z'], rotation=dict(x=0.0, y=degree, z=0.0), horizon=30.0,raise_for_failure=True)
-
-	input("go north (decrement x)")
-	event = controller.step(action='TeleportFull', x=agent["position"]['x']-0.5, y=agent["position"]['y'], z=agent["position"]['z'], rotation=dict(x=0.0, y=270, z=0.0), horizon=30.0,raise_for_failure=True)
-
-	input("go south (increment x)")
-	event = controller.step(action='TeleportFull', x=agent["position"]['x']+0.5, y=agent["position"]['y'], z=agent["position"]['z'], rotation=dict(x=0.0, y=270, z=0.0), horizon=30.0,raise_for_failure=True)
-
-	input("go east (increment y)")
-	event = controller.step(action='TeleportFull', x=agent["position"]['x'], y=agent["position"]['y'], z=agent["position"]['z']+0.25, rotation=dict(x=0.0, y=270, z=0.0), horizon=30.0,raise_for_failure=True)
-
-	input("go west (decrement y)")
-	event = controller.step(action='TeleportFull', x=agent["position"]['x'], y=agent["position"]['y'], z=agent["position"]['z']-0.25, rotation=dict(x=0.0, y=270, z=0.0), horizon=30.0,raise_for_failure=True)
-	input("wait")
+def collect_naive_data(manip_plan,num_attempts=20,gridSize=0.25):
+	naive_stats = {}
+	for i in tqdm(range(1,31)):
+		floorKey = i
+		naive_stats[i] = []
+		for attempt in range(num_attempts):
+			try:
+				controller = Controller(scene="FloorPlan"+str(i), gridSize=gridSize,width=500,height=500,renderObjectImage=True,renderClassImage=True,renderDepthImage=True)
+				total_steps = plan_navigation(controller,manip_plan,gridSize,floorPlan="FloorPlan"+str(i),seed=attempt)
+				naive_stats[i].append(total_steps)
+			except:
+				print("I riased an error, oops",i)
+				controller.stop()
+	print(naive_stats)
+	pickle.dump(naive_stats,open("naive_stats.p","wb"))
 
 
-def plan_navigation(manip_plan,gridSize=0.25,floorPlan='FloorPlan2'):
+
+
+#def plan_navigation(manip_plan,gridSize=0.25,floorPlan='FloorPlan2',seed=0):
+def plan_navigation(controller,manip_plan,gridSize=0.25,floorPlan='FloorPlan2',seed=0):
 	fname = "baseline_images/"+floorPlan+"_toast_1/"
 	counter = 0
-	save_images = True
-
-	controller = Controller(scene=floorPlan, gridSize=gridSize,width=500,height=500,renderObjectImage=True,renderClassImage=True,renderDepthImage=True)
+	save_images = False
 
 	event = controller.step(action="InitialRandomSpawn",
-	randomSeed=25,
+	randomSeed=seed,
 	forceVisible=True,
 	numPlacementAttempts=5,
 	placeStationary=True)
@@ -114,7 +79,7 @@ def plan_navigation(manip_plan,gridSize=0.25,floorPlan='FloorPlan2'):
 	event = controller.step(action='GetReachablePositions')
 	room = event.metadata['actionReturn']
 
-	input("wait")
+	#input("wait")
 
 	heldObject = None
 
@@ -129,7 +94,7 @@ def plan_navigation(manip_plan,gridSize=0.25,floorPlan='FloorPlan2'):
 		mask_im = Image.fromarray(event.instance_segmentation_frame)
 		mask_im.save(fname+"mask/"+str(counter)+".png")
 
-		counter += 1
+	counter += 1
 
 	for manip_step in manip_plan:
 		action, obj, obj_highlevel_ref = manip_step
@@ -165,6 +130,7 @@ def plan_navigation(manip_plan,gridSize=0.25,floorPlan='FloorPlan2'):
 		#nearest free pose to object
 		#closest_free_spot = nearest_neighbor(object_loc,room)
 		close_enough_free_spots = action_spots(object_loc,room)
+		print("CLOS ENOUGH FREE SPOTS:",close_enough_free_spots)
 
 
 		#########event = controller.step(action='TeleportFull', x=closest_free_spot['x'], y=closest_free_spot['y'], z=closest_free_spot['z'], rotation=dict(x=0.0, y=degree, z=0.0), horizon=30.0,raise_for_failure=True)
@@ -181,9 +147,9 @@ def plan_navigation(manip_plan,gridSize=0.25,floorPlan='FloorPlan2'):
 		##### TELEPORT MOVE #######
 		
 		for pos in plan:
-			print("go to:",pos)
-			print(pos[0],goal_pose[1],pos[1],0.0,goal_pose[3],0.0,30.0)
-			input("")
+			#print("go to:",pos)
+			#print(pos[0],goal_pose[1],pos[1],0.0,goal_pose[3],0.0,30.0)
+			#input("")
 			try:
 				event = controller.step(action='TeleportFull', x=pos[0], y=goal_pose[1], z=pos[1], rotation=dict(x=0.0, y=goal_pose[3], z=0.0), horizon=30.0,raise_for_failure=True)
 				if save_images:
@@ -192,10 +158,11 @@ def plan_navigation(manip_plan,gridSize=0.25,floorPlan='FloorPlan2'):
 
 					mask_im = Image.fromarray(event.instance_segmentation_frame)
 					mask_im.save(fname+"mask/"+str(counter)+".png")
-					counter += 1
+				counter += 1
 			except:
 				pass
-		print("finsihed going!")
+		print("finished going!")
+		input("try manip")
 
 		###### ACTUAYL MOVE ####
 		'''
@@ -240,7 +207,7 @@ def plan_navigation(manip_plan,gridSize=0.25,floorPlan='FloorPlan2'):
 
 		#################
 
-		input("before manip")
+		#input("before manip")
 		if action == "PickupObject":
 			event = controller.step(action='PickupObject',
 				objectId=obj_ref['objectId'],
@@ -283,43 +250,51 @@ def plan_navigation(manip_plan,gridSize=0.25,floorPlan='FloorPlan2'):
 
 			mask_im = Image.fromarray(event.instance_segmentation_frame)
 			mask_im.save(fname+"mask/"+str(counter)+".png")
-			counter += 1
+		counter += 1
 
 
-		input("wait")
+		#input("wait")
+	controller.stop()
+	return(counter)
 
 
+if __name__ == "__main__":
 
-toast_plan = [["PickupObject","Knife","Knife0"],
-["SliceObject","Bread","Bread0"],
-["PutObject","CounterTop","CounterTop0"],
-["PickupObject","BreadSliced","BreadSliced0"],
-["PutObject","Toaster","Toaster0"],
-["ToggleObjectOn","Toaster","Toaster0"],
-["ToggleObjectOff","Toaster","Toaster0"],
-["PickupObject","BreadSliced","BreadSliced0"],
-]
+	toast_plan = [["PickupObject","Knife","Knife0"],
+	["SliceObject","Bread","Bread0"],
+	["PutObject","CounterTop","CounterTop0"],
+	["PickupObject","BreadSliced","BreadSliced0"],
+	["PutObject","Toaster","Toaster0"],
+	["ToggleObjectOn","Toaster","Toaster0"],
+	["ToggleObjectOff","Toaster","Toaster0"],
+	["PickupObject","BreadSliced","BreadSliced0"],
+	]
 
-egg_plan = [["PickupObject","Pan","Pan0"],
-["PutObject","StoveBurner","Stove0"],
-["PickupObject","Egg","Egg0"],
-["PutObject","Pan","Pan0"],
-["SliceObject","Egg","Egg0"],
-["ToggleObjectOn","StoveKnob","StoveKnob0"],
-["ToggleObjectOn","StoveKnob","StoveKnob1"],
-["ToggleObjectOn","StoveKnob","StoveKnob2"],
-["ToggleObjectOn","StoveKnob","StoveKnob3"],
-["ToggleObjectOn","StoveKnob","StoveKnob4"],
-["ToggleObjectOn","StoveKnob","StoveKnob5"],
-["ToggleObjectOff","StoveKnob","StoveKnob0"],
-["ToggleObjectOff","StoveKnob","StoveKnob1"],
-["ToggleObjectOff","StoveKnob","StoveKnob2"],
-["ToggleObjectOff","StoveKnob","StoveKnob3"],
-["ToggleObjectOff","StoveKnob","StoveKnob4"],
-["ToggleObjectOff","StoveKnob","StoveKnob5"],
-]
+	egg_plan = [["PickupObject","Pan","Pan0"],
+	["PutObject","StoveBurner","Stove0"],
+	["PickupObject","Egg","Egg0"],
+	["PutObject","Pan","Pan0"],
+	["SliceObject","Egg","Egg0"],
+	["ToggleObjectOn","StoveKnob","StoveKnob0"],
+	["ToggleObjectOn","StoveKnob","StoveKnob1"],
+	["ToggleObjectOn","StoveKnob","StoveKnob2"],
+	["ToggleObjectOn","StoveKnob","StoveKnob3"],
+	["ToggleObjectOn","StoveKnob","StoveKnob4"],
+	["ToggleObjectOn","StoveKnob","StoveKnob5"],
+	["ToggleObjectOff","StoveKnob","StoveKnob0"],
+	["ToggleObjectOff","StoveKnob","StoveKnob1"],
+	["ToggleObjectOff","StoveKnob","StoveKnob2"],
+	["ToggleObjectOff","StoveKnob","StoveKnob3"],
+	["ToggleObjectOff","StoveKnob","StoveKnob4"],
+	["ToggleObjectOff","StoveKnob","StoveKnob5"],
+	]
 
-floor_plans = [1,2,3,4,5,6,7,8,9,10,11]
-plan_navigation(toast_plan,gridSize=0.25,floorPlan="FloorPlan2")
+	floor_plans = [1,2,3,4,5,6,7,8,9,10,11]
+	i = 12
+	gridSize = 0.25
 
-#rotate_test()
+	controller = Controller(scene="FloorPlan"+str(i), gridSize=gridSize,width=500,height=500,renderObjectImage=True,renderClassImage=True,renderDepthImage=True)
+	plan_navigation(controller,toast_plan,gridSize=0.25,floorPlan="FloorPlan"+str(i),seed=3420)
+	#collect_naive_data(toast_plan,gridSize=0.25)
+
+	#rotate_test()

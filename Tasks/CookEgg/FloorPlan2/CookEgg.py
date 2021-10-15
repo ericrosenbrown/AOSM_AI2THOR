@@ -54,6 +54,8 @@ if save_images:
 for o in event.metadata['objects']:
     if o['visible'] and o['objectType'] == 'StoveBurner':
         stove_object_id = o['objectId']
+        print("stove burner:",stove_object_id)
+        print("pan:",pan_object_id)
         event = controller.step(action='PutObject',
                                 receptacleObjectId=stove_object_id,
                                 objectId=pan_object_id,

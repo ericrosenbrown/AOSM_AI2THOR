@@ -17,6 +17,78 @@ def dd():
 def ddd():
 	return defaultdict(list)
 
+def slam_viz_hidden_room(room,seen_room,robot_position,gridSize=0.25):
+	minx = 1000000
+	minz = 1000000
+	maxx = -1000000
+	maxz = -1000000
+
+	robox = int(robot_position[0]/gridSize)
+	roboz = int(robot_position[1]/gridSize)
+
+	freespace = []
+	for xyz in room:
+		x = int(xyz['x']/gridSize)
+		z = int(xyz['z']/gridSize)
+
+		if x <= minx:
+			minx = x
+		if x >= maxx:
+			maxx = x
+		if z <= minz:
+			minz = z
+		if z >= maxz:
+			maxz = z
+		freespace.append([x,z])
+
+	for i in range(minx-3,maxx+3):
+		rowstr = ""
+		for j in range(minz-3,maxz+3):
+			if [i,j] in seen_room:
+				if i == robox and j == roboz:
+					rowstr += "R"
+				elif [i,j] in freespace:
+					rowstr += "."
+				else:
+					rowstr += "+"
+			else:
+				rowstr += " "
+		print(rowstr)
+
+def slam_viz_room(room,robot_position,gridSize=0.25):
+	minx = 1000000
+	minz = 1000000
+	maxx = -1000000
+	maxz = -1000000
+
+	robox = int(robot_position[0]/gridSize)
+	roboz = int(robot_position[1]/gridSize)
+
+	freespace = []
+	for xyz in room:
+		x = int(xyz['x']/gridSize)
+		z = int(xyz['z']/gridSize)
+
+		if x <= minx:
+			minx = x
+		if x >= maxx:
+			maxx = x
+		if z <= minz:
+			minz = z
+		if z >= maxz:
+			maxz = z
+		freespace.append([x,z])
+
+	for i in range(minx-3,maxx+3):
+		rowstr = ""
+		for j in range(minz-3,maxz+3):
+			if i == robox and j == roboz:
+				rowstr += "R"
+			elif [i,j] in freespace:
+				rowstr += "."
+			else:
+				rowstr += "+"
+		print(rowstr)
 
 def viz_room(room,robot_position,gridSize=0.25):
 	minx = 1000000

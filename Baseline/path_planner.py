@@ -33,18 +33,18 @@ def steer(new,nearest,room,grid_size=0.25):
 	#return a point extending from nearest to new that is at most length threshold
 
 	if new[0] >= nearest.p[0] + grid_size/2:
-		print("GO RIGHT")
+		#print("GO RIGHT")
 		xd = grid_size
 	elif new[0] < nearest.p[0] - grid_size/2:
-		print("GO LEFT")
+		#print("GO LEFT")
 		xd = -1*grid_size
 	else:
 		xd = 0
 	if new[1] >= nearest.p[1] + grid_size/2:
-		print("GO UP")
+		#print("GO UP")
 		zd = grid_size
 	elif new[1] < nearest.p[1] - grid_size/2:
-		print("GO DOWN")
+		#print("GO DOWN")
 		zd = -1*grid_size
 	else:
 		zd = 0
@@ -67,6 +67,8 @@ def rrt_path_planner_multigoal(room,robot_pose,goal_poses,threshold=1,grid_size=
 	robot_r = robot_pose[3] #rotation
 
 	random.shuffle(goal_poses)
+
+	print("IMPROTANT:",goal_poses)
 
 	goal_x = goal_poses[0][0]
 	goal_z = goal_poses[0][1]
@@ -185,7 +187,7 @@ def rrt_path_planner(room,robot_pose,goal_pose,threshold=1,grid_size=0.25,viz=Fa
 			complete = True
 			goal_rep = new_node #the configuration close enough to the goal.
 
-	print("RRT completed in ",steps, " steps")
+	#print("RRT completed in ",steps, " steps")
 
 	plt.plot(x,y,'bo')
 	for point in planning_tree:
@@ -209,7 +211,7 @@ def rrt_path_planner(room,robot_pose,goal_pose,threshold=1,grid_size=0.25,viz=Fa
 	pos_plan.append(root.p)
 	x,y = zip(*(root.p,child.p))
 	plt.plot(x,y,'r')
-	print("RRT found a plan of length ",plan_length)
+	#print("RRT found a plan of length ",plan_length)
         
 	plt.plot(root.p[0],root.p[1],'ro')
 	plt.plot(goal_x,goal_z,'yo')
